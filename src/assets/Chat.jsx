@@ -1,60 +1,99 @@
-import React from 'react'
-import Send from './Send.png';
+import React, { useState, useEffect } from "react";
+import moment from "moment";
+import Send from "./Send.png";
+import { db } from "./firbase.config";
+import { useLocation } from "react-router-dom";
+import { addDoc, collection, query, where, onSnapshot } from "firebase/firestore";
 
 const MessageCard = () => {
+  const { state } = useLocation();
+  const [message, setMessage] = useState("");
+  const [chat, setChat] = useState([]);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, "chat"),
+      where(state.uid, "==", true),
+      where(state.myuid, "==", true)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list = [];
+      snapshot.forEach((doc) => {
+        list.push(doc.data());
+      });
+      const sortedList = list.sort((a, b) => a.createdAt - b.createdAt);
+      setChat(sortedList);
+    });
+    return unsubscribe;
+  }, [state.uid, state.myuid]);
+
+  const sendMessage = (e) => {
+    e.preventDefault();
+    addDoc(collection(db, "chat"), {
+      message,
+      [state.uid]: true,
+      [state.myuid]: true,
+      sender: state.myuid,
+      createdAt: Date.now(),
+    });
+
+    setMessage("");
+  };
+
   return (
-    <>
-    <div className='h-[100vh] w-full flex justify-center items-center bg-green-200 text-black'>
-        <div className='h-96 w-full border-2 border-gray-600 p-3 m-8'>
-         <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
-          {/* Custom Chat App Logo */}
+    <div className="flex flex-col h-screen bg-blue-100 text-black">
+      <div className="flex items-center p-3 bg-green-900 shadow-md">
+        <a href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
           <svg
-            className="h-8 w-8 text-green-600"
+            className="h-8 w-8 text-white"
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
           >
             <path d="M4 21v-5.586L2.293 14.93A1 1 0 012 13.586V4a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2h-6.586L6 19.586V21a1 1 0 01-2 0zM4 4v8.586l1.293 1.293A1 1 0 016 14.586L7.586 13H18V4H4z" />
           </svg>
-          <span className="self-center text-2xl font-semibold whitespace-nowrap dark:text-white border-b-4 border-green-600">Chat App</span>
+          <span className="text-xl font-semibold text-white">
+            {"<"}Chat with {state.name}{" />"}
+          </span>
         </a>
-        <div className='h-64 p-8 overflow-auto '>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-            <p>Some messege</p>
-        </div>
-        <div className='flex p-4 mx-4'>
-    <input 
-          type="text" 
-          id="username" 
-          className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg  focus:border-none block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 "
-          placeholder="Some thing write" 
-          required 
-          />
-          <button className='px-6'>
-          <img 
-        src={Send} 
-        alt="Description of the image" 
-        className="w-8 h-auto flex justify-center items-center" // Tailwind CSS classes
-      />
-          </button>
-          </div>
       </div>
+      <div className="flex-grow p-4 overflow-y-auto">
+        {chat.map((item, index) => (
+          <div
+            key={index}
+            className={`my-2 border-1 rounded-lg bg-blue-300  flex-col flex-wrap text-black flex max-w-[40%] p-3  ${
+              item.sender === state.myuid
+                ? "ml-auto text-right"
+                : "mr-auto text-left"
+            }`}
+          >
+            <p>{item.message}</p>
+            <p className="text-gray-600 text-xs">
+              {moment(item.createdAt).startOf('second').fromNow()}
+            </p>
           </div>
-    </>
+        ))}
+      </div>
+      <form className="flex p-4 bg-white" onSubmit={sendMessage}>
+        <input
+          type="text"
+          className="flex-grow bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2.5"
+          placeholder="Type your message"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          required
+        />
+        <button className="ml-2">
+          <img
+            src={Send}
+            alt="Send"
+            className="w-8 h-8"
+          />
+        </button>
+      </form>
+    </div>
+  );
+};
 
-  )
-}
-
-export default MessageCard
+export default MessageCard;
